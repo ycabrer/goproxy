@@ -1,3 +1,8 @@
 module github.com/ycabrer/goproxy
 
-require github.com/ycabrer/goproxy/ext v0.0.0-20210521001743-325758956623
+go 1.16
+
+require (
+	github.com/elazarl/goproxy v0.0.0-20210110162100-a92cc753f88e
+	github.com/ycabrer/goproxy/ext v0.0.0-20210521001743-325758956623
+)
