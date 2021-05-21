@@ -15,8 +15,11 @@ import (
 	"net"
 	"runtime"
 	"sort"
+	"sync"
 	"time"
 )
+
+var tlsCache sync.Map 
 
 func hashSorted(lst []string) []byte {
 	c := make([]string, len(lst))
@@ -38,6 +41,12 @@ func hashSortedBigInt(lst []string) *big.Int {
 var goproxySignerVersion = ":goroxy1"
 
 func signHost(ca tls.Certificate, hosts []string) (cert *tls.Certificate, err error) {
+	if  val, ok := tlsCache.Load(hosts); ok {
+		if cert, ok := val.(*tls.Certificate); ok {
+			return cert, nil
+		}
+	}
+
 	var x509ca *x509.Certificate
 
 	// Use the provided ca and not the global GoproxyCa for certificate generation.
@@ -96,10 +105,15 @@ func signHost(ca tls.Certificate, hosts []string) (cert *tls.Certificate, err er
 	if derBytes, err = x509.CreateCertificate(&csprng, &template, x509ca, certpriv.Public(), ca.PrivateKey); err != nil {
 		return
 	}
-	return &tls.Certificate{
+
+	newcert := &tls.Certificate{
 		Certificate: [][]byte{derBytes, ca.Certificate[0]},
 		PrivateKey:  certpriv,
-	}, nil
+	}
+
+	tlsCache.Store(hosts, newcert)
+
+	return newcert, nil
 }
 
 func init() {
