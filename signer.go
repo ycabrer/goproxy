@@ -15,6 +15,7 @@ import (
 	"net"
 	"runtime"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -41,17 +42,19 @@ func hashSortedBigInt(lst []string) *big.Int {
 var goproxySignerVersion = ":goroxy1"
 
 func signHost(ca tls.Certificate, hosts []string) (cert *tls.Certificate, err error) {
-	if  val, ok := tlsCache.Load(hosts); ok {
-		if cert, ok := val.(*tls.Certificate); ok {
-			return cert, nil
-		}
-	}
-
 	var x509ca *x509.Certificate
 
 	// Use the provided ca and not the global GoproxyCa for certificate generation.
 	if x509ca, err = x509.ParseCertificate(ca.Certificate[0]); err != nil {
 		return
+	}
+
+	hostsKey := strings.Join(hosts, ",")
+
+	if  val, ok := tlsCache.Load(hostsKey); ok {
+		if cert, ok := val.(*tls.Certificate); ok {
+			return cert, nil
+		}
 	}
 
 	start := time.Unix(time.Now().Unix()-2592000, 0) // 2592000  = 30 day
@@ -111,7 +114,7 @@ func signHost(ca tls.Certificate, hosts []string) (cert *tls.Certificate, err er
 		PrivateKey:  certpriv,
 	}
 
-	tlsCache.Store(hosts, newcert)
+	tlsCache.Store(hostsKey, newcert)
 
 	return newcert, nil
 }
