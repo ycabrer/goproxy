@@ -20,7 +20,7 @@ import (
 	"time"
 )
 
-var tlsCache sync.Map 
+var tlsCache sync.Map
 
 func hashSorted(lst []string) []byte {
 	c := make([]string, len(lst))
@@ -51,14 +51,18 @@ func signHost(ca tls.Certificate, hosts []string) (cert *tls.Certificate, err er
 
 	hostsKey := strings.Join(hosts, ",")
 
-	if  val, ok := tlsCache.Load(hostsKey); ok {
+	if val, ok := tlsCache.Load(hostsKey); ok {
 		if cert, ok := val.(*tls.Certificate); ok {
-			return cert, nil
+			if leaf, err := x509.ParseCertificate(cert.Certificate[0]); err == nil {
+				if !time.Now().After(leaf.NotAfter) {
+					return cert, nil
+				}
+			}
 		}
 	}
 
 	start := time.Unix(time.Now().Unix()-2592000, 0) // 2592000  = 30 day
-	end := time.Unix(time.Now().Unix()+31536000, 0)  // 31536000 = 365 day
+	end := time.Unix(time.Now().Unix()+7776000, 0)   // 31536000 = 90 days
 
 	serial := big.NewInt(rand.Int63())
 	template := x509.Certificate{
@@ -75,6 +79,7 @@ func signHost(ca tls.Certificate, hosts []string) (cert *tls.Certificate, err er
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
 	}
+
 	for _, h := range hosts {
 		if ip := net.ParseIP(h); ip != nil {
 			template.IPAddresses = append(template.IPAddresses, ip)
